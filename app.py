@@ -20,33 +20,37 @@ st.set_page_config(
 )
 
 # Example queries for the sidebar
-EXAMPLE_QUERIES = [
+EXAMPLE_QUERIES_SIMPLE = [
     "Show 5 popular products and their cost",
-    "Whats the shipping cost of Ladle from Chicago to Detroit?",
-    "Whats the shipping cost of one pair of Dress Shoes from Los Angeles to San Diego?",
+    "Who created a rewards account in January 2022?",
     "Which products are most frequently ordered?",
+    "What is the average order value by product category?",
+]
+EXAMPLE_QUERIES_AGENT = [
+    "Whats the shipping cost of Ladle from Chicago to Detroit?",
+    "Whats the shipping cost of a Dishwasher from Los Angeles to San Diego?",
+]
+EXAMPLE_QUERIES_CHAIN = [
+    "Mostrar 5 productos populares y su costo, según las ventas",
     "Lista de 5 productos populares",
     "¿Cuál es el mejor producto por monto total de ventas?",
     "¿Cuáles son los mejores productos?",
-    "What is the average order value by product category?",
 ]
 
 def initialize_session_state():
     """Initialize session state variables"""
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "backend_type" not in st.session_state:
-        st.session_state.backend_type = "langchain"
-    if "backend" not in st.session_state:
-        st.session_state.backend = None
-    if "show_sparql" not in st.session_state:
-        st.session_state.show_sparql = True
-    if "show_results" not in st.session_state:
-        st.session_state.show_results = False
-    if "query_mode" not in st.session_state:
-        st.session_state.query_mode = "simple"  # simple, agent, or chain
-    if "show_tool_calls" not in st.session_state:
-        st.session_state.show_tool_calls = True
+    defaults = {
+        "messages": [],
+        "backend_type": "langchain",
+        "backend": None,
+        "show_sparql": True,
+        "show_results": False,
+        "query_mode": "simple",  # simple, agent, or chain
+        "show_tool_calls": True,
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
 def run_async(coro):
     """
@@ -167,6 +171,7 @@ def render_sidebar():
 
             if query_mode != st.session_state.query_mode:
                 st.session_state.query_mode = query_mode
+                st.rerun()
 
             # Show description based on mode
             if query_mode == "simple":
@@ -207,17 +212,6 @@ def render_sidebar():
         else:
             st.session_state.show_tool_calls = False
 
-        # st.divider()
-        #
-        # # Example queries
-        # st.subheader("💡 Example Questions")
-        # st.caption("Click to use:")
-        #
-        # for i, query in enumerate(EXAMPLE_QUERIES):
-        #     if st.button(query, key=f"example_{i}", use_container_width=True):
-        #         st.session_state.example_query = query
-        #         st.rerun()
-
 
         # Clear conversation button
         if st.session_state.backend:
@@ -233,40 +227,63 @@ def render_sidebar():
                     st.session_state.backend.reset_conversation()
                     st.rerun()
 
+        # Only show example queries if backend is initialized
+        if st.session_state.backend:
+            st.divider()
+            st.subheader("💡 Example Questions")
+            st.caption("Click to use:")
+            if st.session_state.query_mode == "simple":
+                queries = EXAMPLE_QUERIES_SIMPLE
+            elif st.session_state.query_mode == "agent":
+                queries = EXAMPLE_QUERIES_AGENT
+            else:
+                queries = EXAMPLE_QUERIES_CHAIN
+            for i, query in enumerate(queries):
+                if st.button(query, key=f"example_{i}", use_container_width=True):
+                    st.session_state.example_query = query
+                    st.rerun()
+
+def render_assistant_response(response):
+    """Render the assistant's response, including answer, tool calls, chain steps, SPARQL, results, and conversation ID."""
+    safe_answer = response.get("answer", response.get("text", "No answer generated.")).replace("$", "\\$")
+    st.write(safe_answer)
+
+    # Display tool calls for agent mode
+    if st.session_state.show_tool_calls and response.get("tool_calls"):
+        with st.expander(f"🔧 Tool Calls ({response.get('agent_steps', 0)} steps)"):
+            for i, call in enumerate(response["tool_calls"], 1):
+                st.markdown(f"**Step {i}: {call['tool']}**")
+                st.code(f"Input: {call['input']}", language="json")
+                st.caption(f"Output: {call['output']}")
+                st.divider()
+
+    # Display chain steps for chain mode
+    if st.session_state.show_tool_calls and response.get("chain_steps"):
+        with st.expander(f"⛓️ Chain Steps ({len(response['chain_steps'])} steps)"):
+            for i, step in enumerate(response["chain_steps"], 1):
+                st.markdown(f"**Step {i}: {step['step']}")
+                st.caption(f"Result: {step['result']}")
+                st.divider()
+
+    # Display SPARQL query if available and enabled
+    if st.session_state.show_sparql and response.get("sparql"):
+        with st.expander("🔍 Generated SPARQL Query"):
+            st.code(response["sparql"], language="sparql")
+
+    # Display raw results if available and enabled
+    if st.session_state.show_results and response.get("results"):
+        with st.expander("📊 Raw Results"):
+            st.json(response["results"])
+
+    # Show conversation ID if available
+    if response.get("conversation_id"):
+        st.caption(f"Conversation ID: {response['conversation_id'][:30]}...")
+
 def render_message(role: str, content: Dict[str, Any]):
     """Render a chat message with optional SPARQL query, tool calls, or chain steps"""
     with st.chat_message(role):
         if role == "assistant":
-            # Display the answer
-            answer = content.get("answer", content.get("text", ""))
-            safe_answer = answer.replace("$", "\\$")
-            st.write(safe_answer)
-
-            # Display tool calls for agent mode
-            if st.session_state.show_tool_calls and content.get("tool_calls"):
-                with st.expander(f"🔧 Tool Calls ({content.get('agent_steps', 0)} steps)"):
-                    for i, call in enumerate(content["tool_calls"], 1):
-                        st.markdown(f"**Step {i}: {call['tool']}**")
-                        st.code(f"Input: {call['input']}", language="json")
-                        st.caption(f"Output: {call['output']}")
-                        st.divider()
-
-            # Display chain steps for chain mode
-            if st.session_state.show_tool_calls and content.get("chain_steps"):
-                with st.expander(f"⛓️ Chain Steps ({len(content['chain_steps'])} steps)"):
-                    for i, step in enumerate(content["chain_steps"], 1):
-                        st.markdown(f"**Step {i}: {step['step']}")
-                        st.caption(f"Result: {step['result']}")
-                        st.divider()
-
-            # Display SPARQL query if available and enabled
-            if st.session_state.show_sparql and content.get("sparql"):
-                with st.expander("🔍 Generated SPARQL Query"):
-                    st.code(content["sparql"], language="sparql")
-
-            # Show conversation ID if available
-            if content.get("conversation_id"):
-                st.caption(f"Conversation ID: {content['conversation_id'][:30]}...")
+            render_assistant_response(content)
         else:
             st.markdown(content)
 
@@ -351,40 +368,7 @@ def main():
                         # Default: simple query
                         response = run_async(st.session_state.backend.query(prompt))
 
-                    # Display answer
-                    safe_answer = response.get("answer", "No answer generated.").replace("$", "\\$")
-                    st.write(safe_answer)
-
-                    # Display tool calls for agent mode
-                    if st.session_state.show_tool_calls and response.get("tool_calls"):
-                        with st.expander(f"🔧 Tool Calls ({response.get('agent_steps', 0)} steps)"):
-                            for i, call in enumerate(response["tool_calls"], 1):
-                                st.markdown(f"**Step {i}: {call['tool']}**")
-                                st.code(f"Input: {call['input']}", language="json")
-                                st.caption(f"Output: {call['output']}")
-                                st.divider()
-
-                    # Display chain steps for chain mode
-                    if st.session_state.show_tool_calls and response.get("chain_steps"):
-                        with st.expander(f"⛓️ Chain Steps ({len(response['chain_steps'])} steps)"):
-                            for i, step in enumerate(response["chain_steps"], 1):
-                                st.markdown(f"**Step {i}: {step['step']}**")
-                                st.caption(f"Result: {step['result']}")
-                                st.divider()
-
-                    # Display SPARQL if available and enabled
-                    if st.session_state.show_sparql and response.get("sparql"):
-                        with st.expander("🔍 Generated SPARQL Query"):
-                            st.code(response["sparql"], language="sparql")
-
-                    # Display raw results if available and enabled
-                    if st.session_state.show_results and response.get("results"):
-                        with st.expander("📊 Raw Results"):
-                            st.json(response["results"])
-
-                    # Show conversation ID
-                    if response.get("conversation_id"):
-                        st.caption(f"Conversation ID: {response['conversation_id'][:30]}...")
+                    render_assistant_response(response)
 
                     # Save to message history
                     st.session_state.messages.append({
