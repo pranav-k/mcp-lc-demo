@@ -1,11 +1,12 @@
 """
-A Streamlit demo app showcasing Stardog LangChain/MCP integration.
+A Streamlit demo app showcasing Stardog LangChain integration.
 """
 
-import streamlit as st
-import os
 import asyncio
-from typing import Dict, Any, Optional
+import os
+from typing import Dict, Any
+
+import streamlit as st
 from dotenv import load_dotenv
 
 from backends.langchain_backend import LangChainBackend
@@ -15,22 +16,19 @@ load_dotenv()
 
 st.set_page_config(
     page_title="LangChain/MCP Demo",
-    page_icon="/resources/logo.png",
     layout="wide"
 )
 
 # Example queries for the sidebar
 EXAMPLE_QUERIES = [
-    "Who are the top 5 deal owners by total deal value?",
+    "Show 5 popular products and their cost",
+    "Whats the shipping cost of Ladle from Chicago to Detroit?",
+    "Whats the shipping cost of one pair of Dress Shoes from Los Angeles to San Diego?",
     "Which products are most frequently ordered?",
-    "Show me all active deals",
-    "Which people influence deals but aren't the deal owners?",
-    "What products were purchased by companies with high-value deals?",
-    "Show me the reporting chain for deal owners",
-    "Which brands are associated with our highest-value orders?",
-    "Find companies that have multiple deals from different source partners",
+    "Lista de 5 productos populares",
+    "¿Cuál es el mejor producto por monto total de ventas?",
+    "¿Cuáles son los mejores productos?",
     "What is the average order value by product category?",
-    "Who are the key decision makers in our top accounts?"
 ]
 
 def initialize_session_state():
@@ -53,7 +51,6 @@ def initialize_session_state():
 def run_async(coro):
     """
     Helper function to run async coroutines in Streamlit.
-    Handles event loop lifecycle properly.
     """
     try:
         loop = asyncio.get_event_loop()
@@ -86,12 +83,16 @@ def render_sidebar():
 
         # Backend selection
         backend_type = st.radio(
-            "Select Backend",
-            options=["langchain", "mcp"],
-            index=0 if st.session_state.backend_type == "langchain" else 1,
-            format_func=lambda x: "🦜 LangChain (langchain-stardog)" if x == "langchain" else "🔧 MCP Tools",
+            "Selected Backend",
+            options=["langchain"],  # Only LangChain is selectable
+            index=0,  # LangChain preselected
+            format_func=lambda x: "🦜 LangChain (langchain-stardog)" if x == "langchain" else x,
             help="Choose between LangChain integration or MCP tools"
         )
+        # MCP backend option is commented out for now
+        # options=["langchain", "mcp"],
+        # format_func=lambda x: "🦜 LangChain (langchain-stardog)" if x == "langchain" else "🔧 MCP Tools",
+        # To re-enable MCP, uncomment above lines and adjust index as needed
 
         if backend_type != st.session_state.backend_type:
             st.session_state.backend_type = backend_type
@@ -151,7 +152,7 @@ def render_sidebar():
 
         # Demo Mode Selection (only for LangChain backend)
         if st.session_state.backend_type == "langchain" and st.session_state.backend:
-            st.subheader("🎯 Demo Mode")
+            st.subheader(" Demo Mode")
 
             query_mode = st.selectbox(
                 "Select Query Mode",
@@ -189,12 +190,6 @@ def render_sidebar():
             help="Display the generated SPARQL query with results"
         )
 
-        st.session_state.show_results = st.checkbox(
-            "Show Raw Results",
-            value=st.session_state.show_results,
-            help="Display raw JSON results from the query"
-        )
-
         if st.session_state.query_mode in ["agent", "chain"]:
             st.session_state.show_tool_calls = st.checkbox(
                 "Show Tool Calls / Chain Steps",
@@ -207,13 +202,13 @@ def render_sidebar():
         # # Example queries
         # st.subheader("💡 Example Questions")
         # st.caption("Click to use:")
-
+        #
         # for i, query in enumerate(EXAMPLE_QUERIES):
         #     if st.button(query, key=f"example_{i}", use_container_width=True):
         #         st.session_state.example_query = query
         #         st.rerun()
-
-        # Clear conversation button
+        #
+        # # Clear conversation button
         if st.session_state.backend and st.session_state.messages:
             st.divider()
             col1, col2 = st.columns(2)
@@ -240,11 +235,6 @@ def render_message(role: str, content: Dict[str, Any]):
                 with st.expander("🔍 Generated SPARQL Query"):
                     st.code(content["sparql"], language="sparql")
 
-            # Display raw results if available and enabled
-            if st.session_state.show_results and content.get("results"):
-                with st.expander("📊 Raw Results"):
-                    st.json(content["results"])
-
             # Show conversation ID if available
             if content.get("conversation_id"):
                 st.caption(f"Conversation ID: {content['conversation_id'][:8]}...")
@@ -255,21 +245,27 @@ def main():
     """Main application logic"""
     initialize_session_state()
 
-    # Header
-    st.title("Stardog MCP/LangChain Demo")
-    st.caption(f"Powered by Stardog Cloud + {st.session_state.backend_type.title()}")
+    # Header with logo and title (Streamlit columns, robust)
+    col_logo, col_title = st.columns([1, 8])
+    with col_logo:
+        st.image("static/logo.jpeg", width=108)
+    with col_title:
+        st.title("Stardog LangChain Demo")
+    # st.caption(f"Powered by Stardog Cloud + {st.session_state.backend_type.title()}")
 
     # Render sidebar
     render_sidebar()
 
     # Check if backend is initialized
     if st.session_state.backend is None:
-        st.info("👈 Please configure and initialize a backend in the sidebar to get started.")
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.info("👈 Please configure and initialize the app to get started.")
 
         # Show intro content
         col1, col2 = st.columns([2, 1])
 
         with col1:
+            st.markdown("<br><br>", unsafe_allow_html=True)
             st.subheader("🚀 Getting Started")
             st.markdown("""
             1. **Get your API credentials** from [cloud.stardog.com](https://cloud.stardog.com)
@@ -279,19 +275,19 @@ def main():
             """)
 
         with col2:
-            st.subheader("🔧 Backend Options")
-
-            st.markdown("**🦜 LangChain Backend**")
-            st.caption("""
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            st.subheader("🦜 LangChain Backend")
+            st.markdown("""
             Uses the `langchain-stardog` package with Voicebox API.
-            Best for: Production applications, agent workflows.
+            For installation: `pip install langchain-stardog`
+            Use for: Production applications, agent workflows.
             """)
-
-            st.markdown("**🔧 MCP Backend**")
-            st.caption("""
-            Uses Model Context Protocol tools directly.
-            Best for: IDE integrations, development tools.
-            """)
+        #
+        #     st.markdown("**MCP Backend**")
+        #     st.caption("""
+        #     Uses Model Context Protocol tools directly.
+        #     Best for: IDE integrations, development tools.
+        #     """)
 
         return
 

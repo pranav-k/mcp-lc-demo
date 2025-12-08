@@ -68,22 +68,18 @@ class LangChainBackend:
             if self.conversation_id:
                 input_data["conversation_id"] = self.conversation_id
 
-            # logging.info(f"LangChainBackend endpoint: {self.endpoint}")
-            # logging.info(f"LangChainBackend api_token: {self.api_token}")
-
             # Execute query using async endpoint
             result = await self.ask_runnable.ainvoke(input_data)
-            # logging.info(f"LangChainBackend api_token2: {self.api_token}")
 
             # Update conversation ID for context
             if "conversation_id" in result:
                 self.conversation_id = result["conversation_id"]
 
-            # logging.info(f"LangChainBackend results: {result["answer"]}")
             # Format response
             response = {
                 "answer": result.get("answer", "No answer generated."),
-                "conversation_id": result.get("conversation_id", "")
+                "conversation_id": result.get("conversation_id", ""),
+                "sparql": result.get("sparql_query", "")
             }
 
             return response
@@ -96,7 +92,7 @@ class LangChainBackend:
         self.conversation_id = None
 
     # ========================================================================
-    # Advanced Features: Agent with Multiple Tools
+    # Agent with Multiple Tools
     # ========================================================================
 
     async def query_with_agent(
@@ -152,17 +148,16 @@ class LangChainBackend:
 
             # System prompt for the agent
             system_prompt = """You are a helpful assistant with access to multiple tools:
+            - voicebox_ask: Query the knowledge graph for customer data, orders, products, etc.
+            - calculator: Perform mathematical calculations
+            - calculate_distance: Calculate distance between two locations
+            - calculate_shipping_cost: Calculate shipping costs based on distance and order value
+            
+            Use the appropriate tools to answer questions accurately and concisely.
+            
+            IMPORTANT: Do not use LaTeX, math notation (like $ or $$), or special formatting in your responses. Use plain text for all numbers and calculations."""
 
-- voicebox_ask: Query the knowledge graph for customer data, orders, products, etc.
-- calculator: Perform mathematical calculations
-- calculate_distance: Calculate distance between two locations
-- calculate_shipping_cost: Calculate shipping costs based on distance and order value
-
-Use the appropriate tools to answer questions accurately and concisely.
-
-IMPORTANT: Do not use LaTeX, math notation (like $ or $$), or special formatting in your responses. Use plain text for all numbers and calculations."""
-
-            # Create agent using modern create_agent API (super simple!)
+            # Create agent using create_agent api
             agent = create_agent(
                 f"openai:{llm_model}",
                 tools,
@@ -196,9 +191,8 @@ IMPORTANT: Do not use LaTeX, math notation (like $ or $$), or special formatting
                     # Track tool results
                     elif msg.type == "tool":
                         if tool_calls_list:
-                            tool_calls_list[-1]["output"] = str(msg.content)[:200]
+                            tool_calls_list[-1]["output"] = str(msg.content)
 
-            logging.info(f"AGENT answer: {answer}")
             # Format response
             response = {
                 "answer": answer or "No answer generated.",
@@ -213,7 +207,7 @@ IMPORTANT: Do not use LaTeX, math notation (like $ or $$), or special formatting
             raise Exception(f"Agent query failed: {str(e)}")
 
     # ========================================================================
-    # Advanced Features: Chain Composition (Translation Example)
+    # Chain Composition (Translation Example)
     # ========================================================================
 
     async def query_with_chain(
