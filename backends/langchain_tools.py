@@ -124,6 +124,7 @@ def _mock_translate(text: str, source_lang: str, target_lang: str) -> str:
 def calculate_distance(location1: str, location2: str) -> float:
     """
     Calculate estimated distance between two locations in miles.
+    It is important to only pass the city names and not the states information.
 
     Args:
         location1: First location (city or address)

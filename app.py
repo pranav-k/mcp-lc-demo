@@ -87,7 +87,6 @@ def render_sidebar():
             options=["langchain"],  # Only LangChain is selectable
             index=0,  # LangChain preselected
             format_func=lambda x: "🦜 LangChain (langchain-stardog)" if x == "langchain" else x,
-            help="Choose between LangChain integration or MCP tools"
         )
         # MCP backend option is commented out for now
         # options=["langchain", "mcp"],
@@ -173,8 +172,8 @@ def render_sidebar():
             if query_mode == "simple":
                 st.caption("Direct queries to Voicebox. Best for standard Q&A.")
             elif query_mode == "agent":
-                st.caption("Agent decides which tools to use (Voicebox + Calculator + Shipping).")
-                st.info("💡 Try: 'What's the shipping cost for order X to San Francisco?'")
+                st.caption("Agent decides which tools to use (Voicebox + Dist Calculator + Shipping Rate Calculator).")
+                st.info("💡 Try: 'What's the shipping cost for {item} from Chicago to Detroit?'")
             elif query_mode == "chain":
                 st.caption("Auto-translate queries and responses.")
                 st.info("💡 Try asking in Spanish: '¿Cuáles son los mejores productos?'")
@@ -184,18 +183,29 @@ def render_sidebar():
         # Options
         st.subheader("Display Options")
 
-        st.session_state.show_sparql = st.checkbox(
-            "Show Generated SPARQL",
-            value=st.session_state.show_sparql,
-            help="Display the generated SPARQL query with results"
-        )
+        # Only show SPARQL checkbox in simple mode
+        if st.session_state.query_mode == "simple":
+            st.session_state.show_sparql = st.checkbox(
+                "Show Generated SPARQL",
+                value=st.session_state.show_sparql,
+                help="Display the generated SPARQL query with results"
+            )
+        else:
+            st.session_state.show_sparql = False
 
+        # Only show tool calls/chain steps checkbox in agent/chain mode
         if st.session_state.query_mode in ["agent", "chain"]:
+            # Default to True if not set or if mode just changed
+            if "last_tool_calls_mode" not in st.session_state or st.session_state.last_tool_calls_mode != st.session_state.query_mode:
+                st.session_state.show_tool_calls = True
+                st.session_state.last_tool_calls_mode = st.session_state.query_mode
             st.session_state.show_tool_calls = st.checkbox(
                 "Show Tool Calls / Chain Steps",
                 value=st.session_state.show_tool_calls,
                 help="Display intermediate tool calls or chain execution steps"
             )
+        else:
+            st.session_state.show_tool_calls = False
 
         # st.divider()
         #
@@ -207,9 +217,10 @@ def render_sidebar():
         #     if st.button(query, key=f"example_{i}", use_container_width=True):
         #         st.session_state.example_query = query
         #         st.rerun()
-        #
-        # # Clear conversation button
-        if st.session_state.backend and st.session_state.messages:
+
+
+        # Clear conversation button
+        if st.session_state.backend:
             st.divider()
             col1, col2 = st.columns(2)
             with col1:
@@ -223,12 +234,30 @@ def render_sidebar():
                     st.rerun()
 
 def render_message(role: str, content: Dict[str, Any]):
-    """Render a chat message with optional SPARQL query"""
+    """Render a chat message with optional SPARQL query, tool calls, or chain steps"""
     with st.chat_message(role):
         if role == "assistant":
             # Display the answer
             answer = content.get("answer", content.get("text", ""))
-            st.markdown(answer)
+            safe_answer = answer.replace("$", "\\$")
+            st.write(safe_answer)
+
+            # Display tool calls for agent mode
+            if st.session_state.show_tool_calls and content.get("tool_calls"):
+                with st.expander(f"🔧 Tool Calls ({content.get('agent_steps', 0)} steps)"):
+                    for i, call in enumerate(content["tool_calls"], 1):
+                        st.markdown(f"**Step {i}: {call['tool']}**")
+                        st.code(f"Input: {call['input']}", language="json")
+                        st.caption(f"Output: {call['output']}")
+                        st.divider()
+
+            # Display chain steps for chain mode
+            if st.session_state.show_tool_calls and content.get("chain_steps"):
+                with st.expander(f"⛓️ Chain Steps ({len(content['chain_steps'])} steps)"):
+                    for i, step in enumerate(content["chain_steps"], 1):
+                        st.markdown(f"**Step {i}: {step['step']}")
+                        st.caption(f"Result: {step['result']}")
+                        st.divider()
 
             # Display SPARQL query if available and enabled
             if st.session_state.show_sparql and content.get("sparql"):
@@ -237,7 +266,7 @@ def render_message(role: str, content: Dict[str, Any]):
 
             # Show conversation ID if available
             if content.get("conversation_id"):
-                st.caption(f"Conversation ID: {content['conversation_id'][:8]}...")
+                st.caption(f"Conversation ID: {content['conversation_id'][:30]}...")
         else:
             st.markdown(content)
 
@@ -259,7 +288,7 @@ def main():
     # Check if backend is initialized
     if st.session_state.backend is None:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.info("👈 Please configure and initialize the app to get started.")
+        st.info("👈 Please verify the configuration and initialize the app to get started.")
 
         # Show intro content
         col1, col2 = st.columns([2, 1])
@@ -303,7 +332,7 @@ def main():
         user_input = None
 
     # Chat input
-    if prompt := (user_input or st.chat_input("Ask about your customer data...")):
+    if prompt := (user_input or st.chat_input("Ask your question here...")):
         # Add user message
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -323,7 +352,8 @@ def main():
                         response = run_async(st.session_state.backend.query(prompt))
 
                     # Display answer
-                    st.markdown(response.get("answer", "No answer generated."))
+                    safe_answer = response.get("answer", "No answer generated.").replace("$", "\\$")
+                    st.write(safe_answer)
 
                     # Display tool calls for agent mode
                     if st.session_state.show_tool_calls and response.get("tool_calls"):
@@ -354,7 +384,7 @@ def main():
 
                     # Show conversation ID
                     if response.get("conversation_id"):
-                        st.caption(f"Conversation ID: {response['conversation_id'][:8]}...")
+                        st.caption(f"Conversation ID: {response['conversation_id'][:30]}...")
 
                     # Save to message history
                     st.session_state.messages.append({

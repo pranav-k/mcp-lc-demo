@@ -49,9 +49,6 @@ Open [http://localhost:8501](http://localhost:8501) in your browser.
 - Click "Initialize App"
 - Ask questions using the chat interface or example queries
 
-## MCP Backend
-
-If using MCP, start the MCP server separately (see [stardog-cloud-mcp](https://github.com/stardog-union/stardog-cloud-mcp)).
 
 ## Project Structure
 

@@ -175,6 +175,7 @@ class LangChainBackend:
             tool_calls_list = []
 
             # Creating response for Streamlit
+            tool_output_idx = 0
             for msg in messages:
                 # Check if it's an AI message
                 if hasattr(msg, 'content') and hasattr(msg, 'type'):
@@ -190,8 +191,9 @@ class LangChainBackend:
                             })
                     # Track tool results
                     elif msg.type == "tool":
-                        if tool_calls_list:
-                            tool_calls_list[-1]["output"] = str(msg.content)
+                        if tool_output_idx < len(tool_calls_list):
+                            tool_calls_list[tool_output_idx]["output"] = str(msg.content)
+                            tool_output_idx += 1
 
             # Format response
             response = {
