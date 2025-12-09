@@ -15,7 +15,7 @@ from backends.mcp_backend import MCPBackend
 load_dotenv()
 
 st.set_page_config(
-    page_title="LangChain/MCP Demo",
+    page_title="LangChain Demo",
     layout="wide"
 )
 
