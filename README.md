@@ -1,6 +1,6 @@
-# Stardog Knowledge Graph Intelligence Assistant
+# LangChain Integration Demo with Stardog Voicebox
 
-A Streamlit app for natural language queries over any Stardog knowledge graph. Supports both **LangChain** (via `langchain-stardog`) and **MCP (Model Context Protocol)** backends.
+A Streamlit app for natural language queries over any Stardog knowledge graph using Voicebox. 
 
 ## Features
 
@@ -44,23 +44,24 @@ Open [http://localhost:8501](http://localhost:8501) in your browser.
 
 ## Usage
 
-- Select backend in the sidebar (LangChain or MCP)
 - Enter your API token and (optionally) client ID
 - Click "Initialize App"
-- Ask questions using the chat interface or example queries
-
+- Select the query mode and ask questions using the chat interface or example queries
 
 ## Project Structure
 
 ```
 mcp-lc-demo/
 ├── app.py
+├── pyproject.toml
+├── README.md
 ├── backends/
+│   ├── __init__.py
 │   ├── langchain_backend.py
-│   └── mcp_backend.py
-├── static/logo.jpeg
-├── .env.example
-└── README.md
+│   ├── langchain_tools.py
+│   ├── mcp_backend.py
+├── static/
+│   └── logo.jpeg
 ```
 
 ## References
