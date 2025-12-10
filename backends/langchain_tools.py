@@ -24,16 +24,16 @@ def detect_language(text: str) -> str:
     logging.info(f"TOOL CALL - detect_language: {text}")
     # Simple keyword-based detection for demo
     spanish_keywords = ['qué', 'cuál', 'cuáles', 'cómo', 'dónde', 'por', 'para', 'el', 'la', 'los', 'las', 'lista', 'productos', 'producto']
-    german_keywords = ['wie', 'was', 'wo', 'der', 'die', 'das', 'und', 'für', 'über']
+    german_keywords = ['wie', 'was', 'wo', 'der', 'die', 'das', 'und', 'für', 'über', 'zeigen', 'sie', 'auf', 'den']
 
     text_lower = text.lower()
 
     spanish_count = sum(1 for keyword in spanish_keywords if keyword in text_lower)
     german_count = sum(1 for keyword in german_keywords if keyword in text_lower)
 
-    if spanish_count > 0:
+    if spanish_count > german_count:
         return "Spanish"
-    elif german_count > 0:
+    elif german_count > spanish_count:
         return "German"
     else:
         return "English"
@@ -65,7 +65,6 @@ def translate_text(text: str, source_lang: str, target_lang: str) -> str:
     }
 
     try:
-        # Try using deep-translator (free, no API key needed!)
         from deep_translator import GoogleTranslator
 
         source_code = lang_to_code.get(source_lang, "auto")
@@ -78,42 +77,9 @@ def translate_text(text: str, source_lang: str, target_lang: str) -> str:
         return translated
 
     except ImportError:
-        logging.warning("deep-translator not installed, using fallback mock translations")
-        # Fallback to mock translations if deep-translator not installed
-        return _mock_translate(text, source_lang, target_lang)
+        logging.error("deep-translator not installed")
     except Exception as e:
-        logging.warning(f"Translation API failed: {e}, using fallback")
-        # Fallback to mock if API fails
-        return _mock_translate(text, source_lang, target_lang)
-
-
-def _mock_translate(text: str, source_lang: str, target_lang: str) -> str:
-    """Fallback mock translations for demo (backup if API fails)"""
-    translations = {
-        ("Spanish", "English"): {
-            "¿Cuáles son los mejores productos?": "What are the best products?",
-            "¿Cuál es el total de pedidos?": "What is the total of orders?",
-            "Lista de 5 productos populares": "List of 5 popular products",
-            "Muéstrame los clientes principales": "Show me the top customers",
-        },
-        ("English", "Spanish"): {
-            "The top products are": "Los mejores productos son",
-            "The total is": "El total es",
-            "Here are the results": "Aquí están los resultados",
-        },
-        ("German", "English"): {
-            "Was sind die besten Produkte?": "What are the best products?",
-            "Zeige mir die Top-Kunden": "Show me the top customers",
-        }
-    }
-
-    # Try exact match first
-    key = (source_lang, target_lang)
-    if key in translations and text in translations[key]:
-        return translations[key][text]
-
-    # Fallback: return with note
-    return f"[Translation {source_lang}→{target_lang}]: {text}"
+        logging.error(f"Translation API failed: {e}")
 
 
 # ============================================================================

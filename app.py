@@ -21,7 +21,7 @@ st.set_page_config(
 
 # Example queries for the sidebar
 EXAMPLE_QUERIES_SIMPLE = [
-    "Show 5 popular products and their cost",
+    "Show 5 popular products and their cost, based on sales",
     "Who created a rewards account in January 2022?",
     "Which products are most frequently ordered?",
     "What is the average order value by product category?",
@@ -32,9 +32,9 @@ EXAMPLE_QUERIES_AGENT = [
 ]
 EXAMPLE_QUERIES_CHAIN = [
     "Mostrar 5 productos populares y su costo, según las ventas",
-    "Lista de 5 productos populares",
-    "¿Cuál es el mejor producto por monto total de ventas?",
-    "¿Cuáles son los mejores productos?",
+    "¿Qué productos son los más pedidos?",
+    "Zeigen Sie 5 beliebte Produkte und deren Kosten, basierend auf den Verkaufszahlen.",
+    "Welche Produkte werden am häufigsten bestellt?",
 ]
 
 def initialize_session_state():
@@ -162,9 +162,9 @@ def render_sidebar():
                 options=["simple", "agent", "chain"],
                 index=["simple", "agent", "chain"].index(st.session_state.query_mode),
                 format_func=lambda x: {
-                    "simple": "Simple - Direct Voicebox Query",
-                    "agent": "Agent - Multi-Tool Orchestration",
-                    "chain": "Chain - Translation Pipeline"
+                    "simple": "Simple",
+                    "agent": "Agent - Shipping Rate Calculator",
+                    "chain": "Chain - Language Translation"
                 }[x],
                 help="Choose how to process queries"
             )

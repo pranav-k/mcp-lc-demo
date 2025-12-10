@@ -20,7 +20,7 @@ A Streamlit app for natural language queries over any Stardog knowledge graph us
 ### Installation
 
 ```bash
-uv pip install -e .
+pip install -e .
 cp .env.example .env
 # Edit .env with your Stardog Cloud credentials
 ```
