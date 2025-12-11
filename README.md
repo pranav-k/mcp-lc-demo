@@ -59,7 +59,6 @@ mcp-lc-demo/
 │   ├── __init__.py
 │   ├── langchain_backend.py
 │   ├── langchain_tools.py
-│   ├── mcp_backend.py
 ├── static/
 │   └── logo.jpeg
 ```
