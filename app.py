@@ -10,7 +10,6 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from backends.langchain_backend import LangChainBackend
-from backends.mcp_backend import MCPBackend
 
 load_dotenv()
 
@@ -41,7 +40,6 @@ def initialize_session_state():
     """Initialize session state variables"""
     defaults = {
         "messages": [],
-        "backend_type": "langchain",
         "backend": None,
         "show_sparql": True,
         "show_results": False,
@@ -67,17 +65,12 @@ def run_async(coro):
 
     return loop.run_until_complete(coro)
 
-def get_backend(backend_type: str, config: Dict[str, str]):
-    """Initialize and return the appropriate backend"""
+def get_backend(config: Dict[str, str]):
+    """Initialize and return the LangChain backend"""
     try:
-        if backend_type == "langchain":
-            return LangChainBackend(config)
-        elif backend_type == "mcp":
-            return MCPBackend(config)
-        else:
-            raise ValueError(f"Unknown backend type: {backend_type}")
+        return LangChainBackend(config)
     except Exception as e:
-        st.error(f"Failed to initialize {backend_type} backend: {str(e)}")
+        st.error(f"Failed to initialize LangChain backend: {str(e)}")
         return None
 
 def render_sidebar():
@@ -85,21 +78,8 @@ def render_sidebar():
     with st.sidebar:
         st.header("⚙️ Configuration")
 
-        # Backend selection
-        backend_type = st.radio(
-            "Selected Backend",
-            options=["langchain"],  # Only LangChain is selectable
-            index=0,  # LangChain preselected
-            format_func=lambda x: "🦜 LangChain (langchain-stardog)" if x == "langchain" else x,
-        )
-        # MCP backend option is commented out for now
-        # options=["langchain", "mcp"],
-        # format_func=lambda x: "🦜 LangChain (langchain-stardog)" if x == "langchain" else "🔧 MCP Tools",
-        # To re-enable MCP, uncomment above lines and adjust index as needed
-
-        if backend_type != st.session_state.backend_type:
-            st.session_state.backend_type = backend_type
-            st.session_state.backend = None  # Reset backend on change
+        # Show backend info
+        st.markdown("**Backend:** 🦜 LangChain (langchain-stardog)")
 
         st.divider()
 
@@ -119,18 +99,11 @@ def render_sidebar():
             help="Optional client ID for usage tracking"
         )
 
-        if backend_type == "mcp":
-            endpoint = st.text_input(
-                "MCP Endpoint",
-                value=os.getenv("MCP_ENDPOINT", "http://localhost:7001/mcp"),
-                help="MCP server endpoint URL"
-            )
-        else:
-            endpoint = st.text_input(
-                "Stardog Endpoint",
-                value=os.getenv("STARDOG_ENDPOINT", "https://cloud.stardog.com/api"),
-                help="Stardog Cloud API endpoint"
-            )
+        endpoint = st.text_input(
+            "Stardog Endpoint",
+            value=os.getenv("STARDOG_ENDPOINT", "https://cloud.stardog.com/api"),
+            help="Stardog Cloud API endpoint"
+        )
 
         config = {
             "api_token": api_token,
@@ -140,22 +113,22 @@ def render_sidebar():
 
         # Initialize app button
         if st.button("Initialize App", use_container_width=True):
-            with st.spinner(f"Initializing {backend_type} backend..."):
-                backend = get_backend(backend_type, config)
+            with st.spinner("Initializing LangChain backend..."):
+                backend = get_backend(config)
                 if backend:
                     st.session_state.backend = backend
-                    st.success(f"{backend_type.title()} backend initialized!")
+                    st.success("LangChain backend initialized!")
                     st.rerun()
 
         # Show backend status
         if st.session_state.backend:
-            st.success(f"✅ {st.session_state.backend_type.title()} backend active")
+            st.success("✅ LangChain backend active")
 
         st.divider()
 
-        # Demo Mode Selection (only for LangChain backend)
-        if st.session_state.backend_type == "langchain" and st.session_state.backend:
-            st.subheader(" Demo Mode")
+        # Demo Mode Selection
+        if st.session_state.backend:
+            st.subheader("Demo Mode")
 
             query_mode = st.selectbox(
                 "Select Query Mode",
@@ -297,7 +270,6 @@ def main():
         st.image("static/logo.jpeg", width=108)
     with col_title:
         st.title("Stardog LangChain Demo")
-    # st.caption(f"Powered by Stardog Cloud + {st.session_state.backend_type.title()}")
 
     # Render sidebar
     render_sidebar()
@@ -315,9 +287,9 @@ def main():
             st.subheader("🚀 Getting Started")
             st.markdown("""
             1. **Get your API credentials** from [cloud.stardog.com](https://cloud.stardog.com)
-            2. **Configure your backend** in the sidebar (LangChain or MCP)
+            2. **Configure credentials** in the sidebar
             3. **Click Initialize** to connect to your Stardog Cloud instance
-            4. **Start asking questions** about against your configured KG!
+            4. **Start asking questions** against your configured KG!
             """)
 
         with col2:
@@ -325,15 +297,11 @@ def main():
             st.subheader("🦜 LangChain Backend")
             st.markdown("""
             Uses the `langchain-stardog` package with Voicebox API.
-            For installation: `pip install langchain-stardog`
-            Use for: Production applications, agent workflows.
+
+            **Installation:** `pip install langchain-stardog`
+
+            **Use for:** Production applications, agent workflows, chain composition.
             """)
-        #
-        #     st.markdown("**MCP Backend**")
-        #     st.caption("""
-        #     Uses Model Context Protocol tools directly.
-        #     Best for: IDE integrations, development tools.
-        #     """)
 
         return
 
